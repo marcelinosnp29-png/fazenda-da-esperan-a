@@ -1,5 +1,5 @@
 -- ============================================================
--- SCHEMA COMPLETO — FAZENDA DA ESPERANÇA (CURSOS ON-LINE)
+-- SCHEMA COMPLETO - FAZENDA DA ESPERANÇA (CURSOS ONLINE)
 -- Supabase SQL Editor
 -- ============================================================
 
@@ -9,137 +9,135 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ============================================================
--- TABELAS
--- ============================================================
+-- ------------------------------------------------------------
+-- ENUM TYPES
+-- ------------------------------------------------------------
+CREATE TYPE user_role AS ENUM ('admin', 'aluno', 'instrutor');
+CREATE TYPE post_status AS ENUM ('rascunho', 'publicado', 'arquivado');
+CREATE TYPE lead_status AS ENUM ('novo', 'contatado', 'convertido', 'perdido');
+CREATE TYPE arquivo_tipo AS ENUM ('imagem', 'video', 'documento', 'audio', 'outro');
 
 -- ------------------------------------------------------------
--- 1. LEADS
--- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.leads (
-    id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nome          TEXT        NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 150),
-    email         TEXT        NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$'),
-    telefone      TEXT        CHECK (telefone IS NULL OR char_length(telefone) BETWEEN 8 AND 20),
-    origem        TEXT        NOT NULL DEFAULT 'site'
-                              CHECK (origem IN ('site','landing_page','indicacao','social','outro')),
-    interesse     TEXT,
-    mensagem      TEXT        CHECK (mensagem IS NULL OR char_length(mensagem) <= 2000),
-    status        TEXT        NOT NULL DEFAULT 'novo'
-                              CHECK (status IN ('novo','contatado','qualificado','convertido','descartado')),
-    ip_origem     INET,
-    utm_source    TEXT,
-    utm_medium    TEXT,
-    utm_campaign  TEXT,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ------------------------------------------------------------
--- 2. USUÁRIOS (espelho de auth.users + dados extras)
+-- TABELA: usuarios
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.usuarios (
-    id            UUID        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    nome          TEXT        NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 150),
-    email         TEXT        NOT NULL CHECK (email ~* '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$'),
-    avatar_url    TEXT        CHECK (avatar_url IS NULL OR char_length(avatar_url) <= 500),
-    bio           TEXT        CHECK (bio IS NULL OR char_length(bio) <= 1000),
-    telefone      TEXT        CHECK (telefone IS NULL OR char_length(telefone) BETWEEN 8 AND 20),
-    role          TEXT        NOT NULL DEFAULT 'aluno'
-                              CHECK (role IN ('admin','instrutor','aluno')),
-    ativo         BOOLEAN     NOT NULL DEFAULT TRUE,
-    ultimo_acesso TIMESTAMPTZ,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email       TEXT NOT NULL UNIQUE,
+    nome        TEXT NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 150),
+    avatar_url  TEXT CHECK (avatar_url ~ '^https?://.*' OR avatar_url IS NULL),
+    role        user_role NOT NULL DEFAULT 'aluno',
+    telefone    TEXT CHECK (telefone ~ '^\+?[0-9\s\-\(\)]{7,20}$' OR telefone IS NULL),
+    ativo       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+COMMENT ON TABLE public.usuarios IS 'Perfis de usuários vinculados ao auth.users do Supabase';
+COMMENT ON COLUMN public.usuarios.role IS 'admin | aluno | instrutor';
+
 -- ------------------------------------------------------------
--- 3. POSTS (artigos / aulas / notícias)
+-- TABELA: leads
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.leads (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nome        TEXT NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 150),
+    email       TEXT NOT NULL CHECK (email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
+    telefone    TEXT CHECK (telefone ~ '^\+?[0-9\s\-\(\)]{7,20}$' OR telefone IS NULL),
+    mensagem    TEXT CHECK (char_length(mensagem) <= 2000 OR mensagem IS NULL),
+    origem      TEXT CHECK (char_length(origem) <= 100 OR origem IS NULL),
+    status      lead_status NOT NULL DEFAULT 'novo',
+    ip_address  INET,
+    user_agent  TEXT CHECK (char_length(user_agent) <= 500 OR user_agent IS NULL),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE public.leads IS 'Leads capturados via formulários públicos';
+COMMENT ON COLUMN public.leads.origem IS 'Ex: landing-page, popup, rodape';
+
+-- ------------------------------------------------------------
+-- TABELA: posts
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.posts (
-    id             UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    autor_id       UUID        NOT NULL REFERENCES public.usuarios(id) ON DELETE SET NULL,
-    titulo         TEXT        NOT NULL CHECK (char_length(titulo) BETWEEN 3 AND 250),
-    slug           TEXT        NOT NULL UNIQUE CHECK (slug ~* '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
-    resumo         TEXT        CHECK (resumo IS NULL OR char_length(resumo) <= 500),
-    conteudo       TEXT        NOT NULL CHECK (char_length(conteudo) >= 10),
-    imagem_capa    TEXT        CHECK (imagem_capa IS NULL OR char_length(imagem_capa) <= 500),
-    categoria      TEXT        NOT NULL DEFAULT 'geral'
-                               CHECK (categoria IN ('geral','curso','noticia','devocional','evento','outro')),
-    tags           TEXT[]      DEFAULT '{}',
-    status         TEXT        NOT NULL DEFAULT 'rascunho'
-                               CHECK (status IN ('rascunho','revisao','publicado','arquivado')),
-    destaque       BOOLEAN     NOT NULL DEFAULT FALSE,
-    visualizacoes  INTEGER     NOT NULL DEFAULT 0 CHECK (visualizacoes >= 0),
-    publicado_em   TIMESTAMPTZ,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    titulo          TEXT NOT NULL CHECK (char_length(titulo) BETWEEN 3 AND 255),
+    slug            TEXT NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
+    conteudo        TEXT,
+    resumo          TEXT CHECK (char_length(resumo) <= 500 OR resumo IS NULL),
+    capa_url        TEXT CHECK (capa_url ~ '^https?://.*' OR capa_url IS NULL),
+    status          post_status NOT NULL DEFAULT 'rascunho',
+    autor_id        UUID REFERENCES public.usuarios(id) ON DELETE SET NULL,
+    tags            TEXT[] DEFAULT '{}',
+    visualizacoes   INTEGER NOT NULL DEFAULT 0 CHECK (visualizacoes >= 0),
+    publicado_em    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT publicado_em_obrigatorio
+        CHECK (
+            (status = 'publicado' AND publicado_em IS NOT NULL)
+            OR status <> 'publicado'
+        )
 );
 
+COMMENT ON TABLE public.posts IS 'Posts do blog / conteúdo dos cursos';
+COMMENT ON COLUMN public.posts.slug IS 'URL amigável única, somente minúsculas e hífens';
+
+-- Índices úteis
+CREATE INDEX IF NOT EXISTS idx_posts_status     ON public.posts(status);
+CREATE INDEX IF NOT EXISTS idx_posts_autor_id   ON public.posts(autor_id);
+CREATE INDEX IF NOT EXISTS idx_posts_slug       ON public.posts(slug);
+CREATE INDEX IF NOT EXISTS idx_posts_tags       ON public.posts USING GIN(tags);
+
 -- ------------------------------------------------------------
--- 4. CONFIGURAÇÕES
+-- TABELA: arquivos
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.configuracoes (
-    id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    chave           TEXT        NOT NULL UNIQUE CHECK (char_length(chave) BETWEEN 2 AND 100),
-    valor           TEXT        CHECK (valor IS NULL OR char_length(valor) <= 5000),
-    tipo            TEXT        NOT NULL DEFAULT 'texto'
-                                CHECK (tipo IN ('texto','numero','booleano','json','cor','url')),
-    descricao       TEXT        CHECK (descricao IS NULL OR char_length(descricao) <= 500),
-    editavel        BOOLEAN     NOT NULL DEFAULT TRUE,
+CREATE TABLE IF NOT EXISTS public.arquivos (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nome            TEXT NOT NULL CHECK (char_length(nome) BETWEEN 1 AND 255),
+    descricao       TEXT CHECK (char_length(descricao) <= 1000 OR descricao IS NULL),
+    storage_path    TEXT NOT NULL CHECK (char_length(storage_path) >= 1),
+    url_publica     TEXT CHECK (url_publica ~ '^https?://.*' OR url_publica IS NULL),
+    tipo            arquivo_tipo NOT NULL DEFAULT 'outro',
+    mime_type       TEXT CHECK (char_length(mime_type) <= 100 OR mime_type IS NULL),
+    tamanho_bytes   BIGINT CHECK (tamanho_bytes > 0 OR tamanho_bytes IS NULL),
+    post_id         UUID REFERENCES public.posts(id) ON DELETE SET NULL,
+    enviado_por     UUID REFERENCES public.usuarios(id) ON DELETE SET NULL,
+    publico         BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+COMMENT ON TABLE public.arquivos IS 'Metadados de arquivos armazenados no Supabase Storage';
+COMMENT ON COLUMN public.arquivos.storage_path IS 'Caminho interno no bucket do Storage';
+
+CREATE INDEX IF NOT EXISTS idx_arquivos_post_id     ON public.arquivos(post_id);
+CREATE INDEX IF NOT EXISTS idx_arquivos_enviado_por ON public.arquivos(enviado_por);
+CREATE INDEX IF NOT EXISTS idx_arquivos_tipo        ON public.arquivos(tipo);
+
 -- ------------------------------------------------------------
--- 5. ARQUIVOS (storage metadata)
+-- TABELA: configuracoes
 -- ------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.arquivos (
-    id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    usuario_id    UUID        REFERENCES public.usuarios(id) ON DELETE SET NULL,
-    post_id       UUID        REFERENCES public.posts(id) ON DELETE SET NULL,
-    nome_original TEXT        NOT NULL CHECK (char_length(nome_original) BETWEEN 1 AND 255),
-    nome_storage  TEXT        NOT NULL UNIQUE CHECK (char_length(nome_storage) BETWEEN 1 AND 500),
-    bucket        TEXT        NOT NULL DEFAULT 'arquivos'
-                              CHECK (char_length(bucket) BETWEEN 1 AND 100),
-    mime_type     TEXT        NOT NULL CHECK (char_length(mime_type) BETWEEN 3 AND 100),
-    tamanho_bytes BIGINT      NOT NULL CHECK (tamanho_bytes > 0),
-    url_publica   TEXT        CHECK (url_publica IS NULL OR char_length(url_publica) <= 1000),
-    tipo          TEXT        NOT NULL DEFAULT 'documento'
-                              CHECK (tipo IN ('imagem','video','audio','documento','outro')),
-    publico       BOOLEAN     NOT NULL DEFAULT FALSE,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS public.configuracoes (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chave           TEXT NOT NULL UNIQUE CHECK (
+                        char_length(chave) BETWEEN 1 AND 100
+                        AND chave ~ '^[a-z][a-z0-9_]*$'
+                    ),
+    valor           TEXT CHECK (char_length(valor) <= 5000 OR valor IS NULL),
+    descricao       TEXT CHECK (char_length(descricao) <= 500 OR descricao IS NULL),
+    tipo            TEXT NOT NULL DEFAULT 'texto' CHECK (
+                        tipo IN ('texto', 'numero', 'booleano', 'json', 'cor', 'url')
+                    ),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- ÍNDICES
--- ============================================================
-CREATE INDEX IF NOT EXISTS idx_leads_email       ON public.leads(email);
-CREATE INDEX IF NOT EXISTS idx_leads_status      ON public.leads(status);
-CREATE INDEX IF NOT EXISTS idx_leads_created_at  ON public.leads(created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_usuarios_email    ON public.usuarios(email);
-CREATE INDEX IF NOT EXISTS idx_usuarios_role     ON public.usuarios(role);
-
-CREATE INDEX IF NOT EXISTS idx_posts_slug        ON public.posts(slug);
-CREATE INDEX IF NOT EXISTS idx_posts_status      ON public.posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_autor       ON public.posts(autor_id);
-CREATE INDEX IF NOT EXISTS idx_posts_categoria   ON public.posts(categoria);
-CREATE INDEX IF NOT EXISTS idx_posts_publicado   ON public.posts(publicado_em DESC);
-
-CREATE INDEX IF NOT EXISTS idx_configuracoes_chave ON public.configuracoes(chave);
-
-CREATE INDEX IF NOT EXISTS idx_arquivos_usuario  ON public.arquivos(usuario_id);
-CREATE INDEX IF NOT EXISTS idx_arquivos_post     ON public.arquivos(post_id);
-CREATE INDEX IF NOT EXISTS idx_arquivos_tipo     ON public.arquivos(tipo);
-
--- ============================================================
--- FUNÇÕES AUXILIARES
--- ============================================================
+COMMENT ON TABLE public.configuracoes IS 'Configurações globais da plataforma (chave-valor)';
+COMMENT ON COLUMN public.configuracoes.tipo IS 'texto | numero | booleano | json | cor | url';
 
 -- ------------------------------------------------------------
--- Função genérica: atualiza updated_at automaticamente
+-- FUNÇÃO: atualizar updated_at automaticamente
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_set_updated_at()
 RETURNS TRIGGER
@@ -153,38 +151,70 @@ BEGIN
 END;
 $$;
 
+COMMENT ON FUNCTION public.fn_set_updated_at IS
+    'Atualiza o campo updated_at automaticamente em qualquer UPDATE';
+
+-- Triggers updated_at
+CREATE TRIGGER trg_usuarios_updated_at
+    BEFORE UPDATE ON public.usuarios
+    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+CREATE TRIGGER trg_leads_updated_at
+    BEFORE UPDATE ON public.leads
+    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+CREATE TRIGGER trg_posts_updated_at
+    BEFORE UPDATE ON public.posts
+    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+CREATE TRIGGER trg_arquivos_updated_at
+    BEFORE UPDATE ON public.arquivos
+    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
+CREATE TRIGGER trg_configuracoes_updated_at
+    BEFORE UPDATE ON public.configuracoes
+    FOR EACH ROW EXECUTE FUNCTION public.fn_set_updated_at();
+
 -- ------------------------------------------------------------
--- Função: cria registro em public.usuarios ao criar auth.user
+-- FUNÇÃO + TRIGGER: handle_new_user (auth.users → public.usuarios)
 -- ------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.handle_new_user()
+CREATE OR REPLACE FUNCTION public.fn_handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_nome  TEXT;
-    v_email TEXT;
+    v_nome TEXT;
 BEGIN
-    v_email := NEW.email;
-
-    -- Tenta pegar o nome dos metadados; usa parte do e-mail como fallback
+    -- Tenta extrair nome do metadata, fallback para parte do e-mail
     v_nome := COALESCE(
         NEW.raw_user_meta_data->>'nome',
         NEW.raw_user_meta_data->>'full_name',
         NEW.raw_user_meta_data->>'name',
-        split_part(v_email, '@', 1)
+        split_part(NEW.email, '@', 1)
     );
 
-    INSERT INTO public.usuarios (id, nome, email, role, ativo, created_at, updated_at)
-    VALUES (
+    -- Garante comprimento mínimo
+    IF char_length(v_nome) < 2 THEN
+        v_nome := v_nome || '_user';
+    END IF;
+
+    INSERT INTO public.usuarios (
+        id,
+        email,
+        nome,
+        avatar_url,
+        role
+    ) VALUES (
         NEW.id,
+        NEW.email,
         v_nome,
-        v_email,
-        COALESCE(NEW.raw_user_meta_data->>'role', 'aluno'),
-        TRUE,
-        NOW(),
-        NOW()
+        NEW.raw_user_meta_data->>'avatar_url',
+        COALESCE(
+            (NEW.raw_user_meta_data->>'role')::user_role,
+            'aluno'::user_role
+        )
     )
     ON CONFLICT (id) DO NOTHING;
 
@@ -192,70 +222,21 @@ BEGIN
 END;
 $$;
 
--- ============================================================
--- TRIGGERS
--- ============================================================
+COMMENT ON FUNCTION public.fn_handle_new_user IS
+    'Cria automaticamente um registro em public.usuarios ao cadastrar em auth.users';
 
--- Trigger: novo usuário em auth.users → public.usuarios
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
+CREATE TRIGGER trg_auth_handle_new_user
     AFTER INSERT ON auth.users
-    FOR EACH ROW
-    EXECUTE FUNCTION public.handle_new_user();
-
--- Trigger: updated_at → leads
-DROP TRIGGER IF EXISTS trg_leads_updated_at ON public.leads;
-CREATE TRIGGER trg_leads_updated_at
-    BEFORE UPDATE ON public.leads
-    FOR EACH ROW
-    EXECUTE FUNCTION public.fn_set_updated_at();
-
--- Trigger: updated_at → usuarios
-DROP TRIGGER IF EXISTS trg_usuarios_updated_at ON public.usuarios;
-CREATE TRIGGER trg_usuarios_updated_at
-    BEFORE UPDATE ON public.usuarios
-    FOR EACH ROW
-    EXECUTE FUNCTION public.fn_set_updated_at();
-
--- Trigger: updated_at → posts
-DROP TRIGGER IF EXISTS trg_posts_updated_at ON public.posts;
-CREATE TRIGGER trg_posts_updated_at
-    BEFORE UPDATE ON public.posts
-    FOR EACH ROW
-    EXECUTE FUNCTION public.fn_set_updated_at();
-
--- Trigger: updated_at → configuracoes
-DROP TRIGGER IF EXISTS trg_configuracoes_updated_at ON public.configuracoes;
-CREATE TRIGGER trg_configuracoes_updated_at
-    BEFORE UPDATE ON public.configuracoes
-    FOR EACH ROW
-    EXECUTE FUNCTION public.fn_set_updated_at();
-
--- Trigger: updated_at → arquivos
-DROP TRIGGER IF EXISTS trg_arquivos_updated_at ON public.arquivos;
-CREATE TRIGGER trg_arquivos_updated_at
-    BEFORE UPDATE ON public.arquivos
-    FOR EACH ROW
-    EXECUTE FUNCTION public.fn_set_updated_at();
-
--- ============================================================
--- ROW LEVEL SECURITY (RLS)
--- ============================================================
-
-ALTER TABLE public.leads         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.usuarios      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.posts         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.configuracoes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.arquivos      ENABLE ROW LEVEL SECURITY;
+    FOR EACH ROW EXECUTE FUNCTION public.fn_handle_new_user();
 
 -- ------------------------------------------------------------
--- Função auxiliar: verifica se o usuário logado é admin
+-- FUNÇÃO AUXILIAR: verificar se usuário é admin
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.fn_is_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
-STABLE
 SECURITY DEFINER
+STABLE
 SET search_path = public
 AS $$
     SELECT EXISTS (
@@ -267,228 +248,217 @@ AS $$
     );
 $$;
 
+COMMENT ON FUNCTION public.fn_is_admin IS
+    'Retorna TRUE se o usuário autenticado possuir role = admin';
+
 -- ------------------------------------------------------------
--- Função auxiliar: verifica se o usuário logado é instrutor ou admin
+-- ROW LEVEL SECURITY — HABILITAR
 -- ------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.fn_is_instrutor_or_admin()
-RETURNS BOOLEAN
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-    SELECT EXISTS (
-        SELECT 1
-        FROM public.usuarios
-        WHERE id = auth.uid()
-          AND role IN ('admin','instrutor')
-          AND ativo = TRUE
-    );
-$$;
+ALTER TABLE public.usuarios        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leads           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.posts           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.arquivos        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.configuracoes   ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- POLÍTICAS RLS — LEADS
+-- POLÍTICAS RLS: usuarios
 -- ============================================================
 
--- Qualquer pessoa (inclusive anônima) pode inserir um lead
-CREATE POLICY "leads_insert_anonimo"
-    ON public.leads FOR INSERT
-    TO anon, authenticated
-    WITH CHECK (TRUE);
-
--- Apenas admin visualiza / edita / remove leads
-CREATE POLICY "leads_select_admin"
-    ON public.leads FOR SELECT
+-- Admin: acesso total
+CREATE POLICY "admin_all_usuarios"
+    ON public.usuarios
+    FOR ALL
     TO authenticated
-    USING (public.fn_is_admin());
-
-CREATE POLICY "leads_update_admin"
-    ON public.leads FOR UPDATE
-    TO authenticated
-    USING (public.fn_is_admin())
+    USING      (public.fn_is_admin())
     WITH CHECK (public.fn_is_admin());
 
-CREATE POLICY "leads_delete_admin"
-    ON public.leads FOR DELETE
-    TO authenticated
-    USING (public.fn_is_admin());
-
--- ============================================================
--- POLÍTICAS RLS — USUÁRIOS
--- ============================================================
-
--- Usuário autenticado vê seu próprio registro
-CREATE POLICY "usuarios_select_proprio"
-    ON public.usuarios FOR SELECT
+-- Usuário autenticado: lê/atualiza apenas seu próprio perfil
+CREATE POLICY "usuario_select_proprio"
+    ON public.usuarios
+    FOR SELECT
     TO authenticated
     USING (id = auth.uid());
 
--- Admin vê todos
-CREATE POLICY "usuarios_select_admin"
-    ON public.usuarios FOR SELECT
+CREATE POLICY "usuario_update_proprio"
+    ON public.usuarios
+    FOR UPDATE
     TO authenticated
-    USING (public.fn_is_admin());
-
--- Usuário atualiza apenas seu próprio registro
-CREATE POLICY "usuarios_update_proprio"
-    ON public.usuarios FOR UPDATE
-    TO authenticated
-    USING (id = auth.uid())
+    USING      (id = auth.uid())
     WITH CHECK (id = auth.uid());
 
--- Admin atualiza qualquer registro
-CREATE POLICY "usuarios_update_admin"
-    ON public.usuarios FOR UPDATE
+-- ============================================================
+-- POLÍTICAS RLS: leads
+-- ============================================================
+
+-- Anônimo e autenticado: pode inserir lead
+CREATE POLICY "anonimo_insert_lead"
+    ON public.leads
+    FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (TRUE);
+
+-- Admin: acesso total
+CREATE POLICY "admin_all_leads"
+    ON public.leads
+    FOR ALL
     TO authenticated
-    USING (public.fn_is_admin())
+    USING      (public.fn_is_admin())
     WITH CHECK (public.fn_is_admin());
 
--- Admin remove usuários
-CREATE POLICY "usuarios_delete_admin"
-    ON public.usuarios FOR DELETE
-    TO authenticated
-    USING (public.fn_is_admin());
-
--- INSERT feito apenas via trigger (handle_new_user) com SECURITY DEFINER
--- Política para garantir que o trigger possa inserir:
-CREATE POLICY "usuarios_insert_trigger"
-    ON public.usuarios FOR INSERT
-    TO authenticated
-    WITH CHECK (id = auth.uid() OR public.fn_is_admin());
-
 -- ============================================================
--- POLÍTICAS RLS — POSTS
+-- POLÍTICAS RLS: posts
 -- ============================================================
 
--- Qualquer pessoa (anon + autenticado) lê posts publicados
-CREATE POLICY "posts_select_publico"
-    ON public.posts FOR SELECT
+-- Público (anônimo e autenticado): lê apenas posts publicados
+CREATE POLICY "publico_select_posts_publicados"
+    ON public.posts
+    FOR SELECT
     TO anon, authenticated
     USING (status = 'publicado');
 
--- Instrutor/admin lê todos os posts
-CREATE POLICY "posts_select_instrutor"
-    ON public.posts FOR SELECT
+-- Instrutor/admin: lê todos os seus próprios posts
+CREATE POLICY "autor_select_proprio_post"
+    ON public.posts
+    FOR SELECT
     TO authenticated
-    USING (public.fn_is_instrutor_or_admin());
+    USING (autor_id = auth.uid());
 
--- Instrutor insere post (como próprio autor)
-CREATE POLICY "posts_insert_instrutor"
-    ON public.posts FOR INSERT
+-- Instrutor: cria posts (autor = si mesmo)
+CREATE POLICY "instrutor_insert_post"
+    ON public.posts
+    FOR INSERT
     TO authenticated
     WITH CHECK (
-        public.fn_is_instrutor_or_admin()
-        AND autor_id = auth.uid()
+        autor_id = auth.uid()
+        AND EXISTS (
+            SELECT 1 FROM public.usuarios
+            WHERE id = auth.uid()
+              AND role IN ('admin', 'instrutor')
+              AND ativo = TRUE
+        )
     );
 
--- Autor edita seu próprio post; admin edita qualquer um
-CREATE POLICY "posts_update_autor_ou_admin"
-    ON public.posts FOR UPDATE
+-- Instrutor: atualiza seus próprios posts
+CREATE POLICY "autor_update_proprio_post"
+    ON public.posts
+    FOR UPDATE
     TO authenticated
-    USING (autor_id = auth.uid() OR public.fn_is_admin())
-    WITH CHECK (autor_id = auth.uid() OR public.fn_is_admin());
+    USING (
+        autor_id = auth.uid()
+        AND EXISTS (
+            SELECT 1 FROM public.usuarios
+            WHERE id = auth.uid()
+              AND role IN ('admin', 'instrutor')
+              AND ativo = TRUE
+        )
+    )
+    WITH CHECK (autor_id = auth.uid());
 
--- Apenas admin remove posts
-CREATE POLICY "posts_delete_admin"
-    ON public.posts FOR DELETE
+-- Admin: acesso total
+CREATE POLICY "admin_all_posts"
+    ON public.posts
+    FOR ALL
     TO authenticated
-    USING (public.fn_is_admin());
-
--- ============================================================
--- POLÍTICAS RLS — CONFIGURAÇÕES
--- ============================================================
-
--- Qualquer pessoa lê configurações (dados públicos do site)
-CREATE POLICY "configuracoes_select_publico"
-    ON public.configuracoes FOR SELECT
-    TO anon, authenticated
-    USING (TRUE);
-
--- Apenas admin insere / atualiza / remove configurações
-CREATE POLICY "configuracoes_insert_admin"
-    ON public.configuracoes FOR INSERT
-    TO authenticated
+    USING      (public.fn_is_admin())
     WITH CHECK (public.fn_is_admin());
 
-CREATE POLICY "configuracoes_update_admin"
-    ON public.configuracoes FOR UPDATE
-    TO authenticated
-    USING (public.fn_is_admin())
-    WITH CHECK (public.fn_is_admin());
-
-CREATE POLICY "configuracoes_delete_admin"
-    ON public.configuracoes FOR DELETE
-    TO authenticated
-    USING (public.fn_is_admin());
-
 -- ============================================================
--- POLÍTICAS RLS — ARQUIVOS
+-- POLÍTICAS RLS: arquivos
 -- ============================================================
 
--- Arquivos públicos são visíveis por todos
-CREATE POLICY "arquivos_select_publico"
-    ON public.arquivos FOR SELECT
+-- Público: lê arquivos marcados como públicos
+CREATE POLICY "publico_select_arquivos_publicos"
+    ON public.arquivos
+    FOR SELECT
     TO anon, authenticated
     USING (publico = TRUE);
 
--- Usuário autenticado vê seus próprios arquivos
-CREATE POLICY "arquivos_select_proprio"
-    ON public.arquivos FOR SELECT
+-- Usuário autenticado: lê arquivos que ele enviou
+CREATE POLICY "usuario_select_proprio_arquivo"
+    ON public.arquivos
+    FOR SELECT
     TO authenticated
-    USING (usuario_id = auth.uid());
+    USING (enviado_por = auth.uid());
 
--- Admin vê todos os arquivos
-CREATE POLICY "arquivos_select_admin"
-    ON public.arquivos FOR SELECT
+-- Usuário autenticado: faz upload (INSERT)
+CREATE POLICY "usuario_insert_arquivo"
+    ON public.arquivos
+    FOR INSERT
     TO authenticated
-    USING (public.fn_is_admin());
+    WITH CHECK (enviado_por = auth.uid());
 
--- Usuário autenticado insere seus próprios arquivos
-CREATE POLICY "arquivos_insert_autenticado"
-    ON public.arquivos FOR INSERT
+-- Usuário autenticado: atualiza/deleta seus próprios arquivos
+CREATE POLICY "usuario_update_proprio_arquivo"
+    ON public.arquivos
+    FOR UPDATE
     TO authenticated
-    WITH CHECK (usuario_id = auth.uid() OR public.fn_is_admin());
+    USING      (enviado_por = auth.uid())
+    WITH CHECK (enviado_por = auth.uid());
 
--- Usuário atualiza seus próprios arquivos; admin atualiza todos
-CREATE POLICY "arquivos_update_proprio_ou_admin"
-    ON public.arquivos FOR UPDATE
+CREATE POLICY "usuario_delete_proprio_arquivo"
+    ON public.arquivos
+    FOR DELETE
     TO authenticated
-    USING (usuario_id = auth.uid() OR public.fn_is_admin())
-    WITH CHECK (usuario_id = auth.uid() OR public.fn_is_admin());
+    USING (enviado_por = auth.uid());
 
--- Usuário remove seus próprios arquivos; admin remove todos
-CREATE POLICY "arquivos_delete_proprio_ou_admin"
-    ON public.arquivos FOR DELETE
+-- Admin: acesso total
+CREATE POLICY "admin_all_arquivos"
+    ON public.arquivos
+    FOR ALL
     TO authenticated
-    USING (usuario_id = auth.uid() OR public.fn_is_admin());
+    USING      (public.fn_is_admin())
+    WITH CHECK (public.fn_is_admin());
 
 -- ============================================================
--- DADOS INICIAIS — CONFIGURAÇÕES
+-- POLÍTICAS RLS: configuracoes
 -- ============================================================
 
-INSERT INTO public.configuracoes (chave, valor, tipo, descricao, editavel)
-VALUES
-    ('nome_empresa',      'Fazenda da Esperança',  'texto', 'Nome exibido no site e e-mails',              TRUE),
-    ('cor_primaria',      '#2563eb',               'cor',   'Cor primária da identidade visual (hex)',      TRUE),
-    ('cor_secundaria',    '#1e40af',               'cor',   'Cor secundária da identidade visual (hex)',    TRUE),
-    ('whatsapp',          '+5511999999999',         'texto', 'Número WhatsApp para contato (com DDI)',       TRUE),
-    ('email_contato',     'contato@fazendaesperanca.org.br', 'texto', 'E-mail principal de contato',        TRUE),
-    ('site_url',          'https://fazendaesperanca.org.br', 'url',   'URL pública do site',                TRUE),
-    ('logo_url',          NULL,                    'url',   'URL da logo principal',                        TRUE),
-    ('favicon_url',       NULL,                    'url',   'URL do favicon',                               TRUE),
-    ('descricao_site',    'Cursos on-line da Fazenda da Esperança', 'texto', 'Meta description padrão',     TRUE),
-    ('manutencao',        'false',                 'booleano', 'Ativa modo manutenção no site',             TRUE),
-    ('max_upload_mb',     '50',                    'numero',   'Tamanho máximo de upload em MB',            TRUE),
-    ('smtp_host',         NULL,                    'texto', 'Host SMTP para envio de e-mails',              TRUE),
-    ('smtp_porta',        '587',                   'numero','Porta SMTP',                                   TRUE),
-    ('redes_sociais',     '{"instagram":"","facebook":"","youtube":""}',
-                                                   'json',  'Links das redes sociais (JSON)',               TRUE)
-ON CONFLICT (chave) DO UPDATE
-    SET valor      = EXCLUDED.valor,
-        tipo       = EXCLUDED.tipo,
-        descricao  = EXCLUDED.descricao,
-        updated_at = NOW();
+-- Qualquer um (anon + autenticado): lê configurações
+CREATE POLICY "publico_select_configuracoes"
+    ON public.configuracoes
+    FOR SELECT
+    TO anon, authenticated
+    USING (TRUE);
 
--- ============================================================
--- FIM DO SCHEMA
--- ============================================================
+-- Admin: acesso total (INSERT / UPDATE / DELETE)
+CREATE POLICY "admin_all_configuracoes"
+    ON public.configuracoes
+    FOR ALL
+    TO authenticated
+    USING      (public.fn_is_admin())
+    WITH CHECK (public.fn_is_admin());
+
+-- ------------------------------------------------------------
+-- INSERT INICIAL: configuracoes
+-- ------------------------------------------------------------
+INSERT INTO public.configuracoes (chave, valor, descricao, tipo) VALUES
+    ('nome_empresa',    'Fazenda da Esperança',  'Nome exibido na plataforma e e-mails',         'texto'),
+    ('cor_primaria',    '#2563eb',               'Cor primária da interface (hex)',               'cor'),
+    ('cor_secundaria',  '#1e40af',               'Cor secundária da interface (hex)',             'cor'),
+    ('whatsapp',        '+5511999999999',         'Número WhatsApp para contato e suporte',        'texto'),
+    ('email_suporte',   'suporte@fazendaesperanca.com.br', 'E-mail de suporte ao aluno',          'texto'),
+    ('site_url',        'https://fazendaesperanca.com.br', 'URL pública da plataforma',           'url'),
+    ('logo_url',        NULL,                    'URL do logotipo principal',                     'url'),
+    ('favicon_url',     NULL,                    'URL do favicon',                                'url'),
+    ('manutencao',      'false',                 'Ativa modo manutenção (true/false)',             'booleano'),
+    ('max_upload_mb',   '50',                    'Tamanho máximo de upload em MB',                'numero')
+ON CONFLICT (chave) DO NOTHING;
+
+-- ------------------------------------------------------------
+-- GRANT DE EXECUÇÃO DAS FUNÇÕES PARA ROLES
+-- ------------------------------------------------------------
+GRANT EXECUTE ON FUNCTION public.fn_set_updated_at   TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.fn_handle_new_user  TO service_role;
+GRANT EXECUTE ON FUNCTION public.fn_is_admin         TO authenticated, anon;
+
+-- ------------------------------------------------------------
+-- VERIFICAÇÃO FINAL (opcional — retorna resumo das tabelas)
+-- ------------------------------------------------------------
+SELECT
+    schemaname,
+    tablename,
+    rowsecurity AS rls_ativo
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN ('usuarios','leads','posts','arquivos','configuracoes')
+ORDER BY tablename;
