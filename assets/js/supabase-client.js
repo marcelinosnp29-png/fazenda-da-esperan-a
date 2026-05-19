@@ -1,7 +1,7 @@
 // Supabase Client — Compartilhado entre todas as páginas
 // INSTRUÇÃO: substitua os valores abaixo pelas suas credenciais Supabase
 
-const SUPABASE_URL  = 'COLE_SUA_URL_AQUI';
+const SUPABASE_URL  = 'https://akcxbsfhemrbqxhguavn.supabase.co_AQUI';
 const SUPABASE_KEY  = 'COLE_sb_publishable_muXEDXQS0ClofJ_MFHM5RA_GyZhuC3h_AQUI';
 
 let _sb;
