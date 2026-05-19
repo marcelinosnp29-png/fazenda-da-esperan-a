@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login · Fazenda da Esperança Admin</title>
+  <title>Login — Painel Admin | Fazenda da Esperança</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -12,23 +13,28 @@
     }
 
     :root {
-      --bg-page:    #0a0f1e;
-      --bg-card:    #111827;
-      --bg-input:   #1f2937;
-      --border:     #374151;
-      --border-focus: #2563eb;
-      --accent:     #2563eb;
-      --accent-hover: #1d4ed8;
+      --bg-page:       #0a0f1e;
+      --bg-card:       #111827;
+      --bg-input:      #1f2937;
+      --border:        #374151;
+      --border-focus:  #2563eb;
+      --accent:        #2563eb;
+      --accent-hover:  #1d4ed8;
       --accent-active: #1e40af;
-      --text-primary:   #f9fafb;
-      --text-secondary: #9ca3af;
-      --text-label:     #d1d5db;
-      --error-bg:   #1f0a0a;
-      --error-border: #dc2626;
-      --error-text: #fca5a5;
-      --success-bg: #0a1f12;
-      --success-border: #16a34a;
-      --success-text: #86efac;
+      --text-primary:  #f9fafb;
+      --text-secondary:#9ca3af;
+      --text-muted:    #6b7280;
+      --error-bg:      #1f0a0a;
+      --error-border:  #7f1d1d;
+      --error-text:    #fca5a5;
+      --success-bg:    #052e16;
+      --success-border:#14532d;
+      --success-text:  #86efac;
+      --shadow-card:   0 25px 60px rgba(0,0,0,.6), 0 8px 24px rgba(0,0,0,.4);
+      --radius-card:   16px;
+      --radius-input:  10px;
+      --radius-btn:    10px;
+      --transition:    .2s ease;
     }
 
     html, body {
@@ -43,239 +49,252 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 1rem;
+      padding: 24px;
       background-image:
-        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37,99,235,0.15) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(37,99,235,0.08) 0%, transparent 55%);
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37,99,235,.18) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 80% 90%,  rgba(37,99,235,.08) 0%, transparent 50%);
     }
 
-    /* ── Card ── */
+    /* ── CARD ── */
     .card {
       width: 100%;
       max-width: 420px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 2.5rem 2rem;
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.03),
-        0 20px 60px rgba(0,0,0,0.6),
-        0 0 80px rgba(37,99,235,0.06);
-      animation: fadeUp .45s ease both;
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-card);
+      padding: 48px 40px 40px;
+      animation: fadeUp .45s cubic-bezier(.22,.68,0,1.2) both;
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translateY(28px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)   scale(1);    }
     }
 
-    /* ── Logo / Header ── */
+    /* ── LOGO / HEADER ── */
     .logo-wrap {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: .75rem;
-      margin-bottom: 2rem;
+      gap: 14px;
+      margin-bottom: 36px;
     }
 
     .logo-icon {
-      width: 56px;
-      height: 56px;
+      width: 60px;
+      height: 60px;
       background: linear-gradient(135deg, var(--accent), #1d4ed8);
-      border-radius: 14px;
+      border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 24px rgba(37,99,235,0.35);
+      box-shadow: 0 0 0 6px rgba(37,99,235,.15), 0 8px 24px rgba(37,99,235,.35);
     }
 
     .logo-icon svg {
       width: 30px;
       height: 30px;
-      fill: none;
-      stroke: #fff;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      fill: #fff;
     }
 
     .logo-title {
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      letter-spacing: -.02em;
       text-align: center;
+    }
+
+    .logo-title h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: var(--text-primary);
       line-height: 1.2;
     }
 
-    .logo-subtitle {
-      font-size: .75rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      letter-spacing: .08em;
+    .logo-title p {
+      font-size: .78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      letter-spacing: .5px;
       text-transform: uppercase;
-      margin-top: .1rem;
     }
 
-    /* ── Form ── */
+    /* ── FORM ── */
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: .4rem;
-      margin-bottom: 1.1rem;
+      gap: 6px;
+      margin-bottom: 18px;
     }
 
     label {
-      font-size: .8125rem;
+      font-size: .82rem;
       font-weight: 600;
-      color: var(--text-label);
-      letter-spacing: .01em;
+      color: var(--text-secondary);
+      letter-spacing: .3px;
     }
 
     .input-wrap {
       position: relative;
     }
 
-    .input-wrap .icon {
+    .input-icon {
       position: absolute;
-      left: .875rem;
+      left: 14px;
       top: 50%;
       transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
-      stroke: var(--text-secondary);
-      fill: none;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
       pointer-events: none;
-      transition: stroke .2s;
+      transition: color var(--transition);
     }
 
     input[type="email"],
     input[type="password"],
     input[type="text"] {
       width: 100%;
-      padding: .7rem .875rem .7rem 2.5rem;
+      padding: 12px 14px 12px 42px;
       background: var(--bg-input);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-input);
       color: var(--text-primary);
-      font-size: .9375rem;
+      font-size: .95rem;
       outline: none;
-      transition: border-color .2s, box-shadow .2s;
+      transition: border-color var(--transition), box-shadow var(--transition);
       -webkit-appearance: none;
     }
 
     input::placeholder {
-      color: #4b5563;
+      color: var(--text-muted);
     }
 
     input:focus {
       border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.2);
     }
 
-    input:focus + .icon,
-    .input-wrap:focus-within .icon {
-      stroke: var(--accent);
+    input:focus + .input-icon,
+    .input-wrap:focus-within .input-icon {
+      color: var(--accent);
     }
 
     /* toggle senha */
-    .toggle-pw {
+    .toggle-pass {
       position: absolute;
-      right: .875rem;
+      right: 12px;
       top: 50%;
       transform: translateY(-50%);
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0;
-      line-height: 0;
-      color: var(--text-secondary);
-      transition: color .2s;
+      color: var(--text-muted);
+      padding: 4px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      transition: color var(--transition);
     }
 
-    .toggle-pw:hover { color: var(--text-primary); }
+    .toggle-pass:hover { color: var(--text-secondary); }
 
-    .toggle-pw svg {
-      width: 16px;
-      height: 16px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 1.8;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+    .toggle-pass svg {
+      width: 18px;
+      height: 18px;
     }
 
-    /* ── Mensagem erro / sucesso ── */
-    .msg {
-      display: none;
-      padding: .7rem .9rem;
-      border-radius: 8px;
-      font-size: .8125rem;
-      font-weight: 500;
-      margin-bottom: 1.1rem;
-      line-height: 1.4;
-      align-items: flex-start;
-      gap: .5rem;
-    }
-
-    .msg.show { display: flex; }
-
-    .msg svg {
-      flex-shrink: 0;
-      width: 15px;
-      height: 15px;
-      margin-top: .05rem;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
+    /* ── MENSAGEM DE ERRO / SUCESSO ── */
     #erro-login {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
       background: var(--error-bg);
       border: 1px solid var(--error-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      animation: shake .35s ease;
+    }
+
+    #erro-login svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
       color: var(--error-text);
+      margin-top: 1px;
+    }
+
+    #erro-login span {
+      font-size: .85rem;
+      color: var(--error-text);
+      line-height: 1.45;
+    }
+
+    #erro-login.show { display: flex; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
     }
 
     #sucesso-login {
+      display: none;
+      align-items: center;
+      gap: 10px;
       background: var(--success-bg);
       border: 1px solid var(--success-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+
+    #sucesso-login svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
       color: var(--success-text);
     }
 
-    /* ── Botão ── */
+    #sucesso-login span {
+      font-size: .85rem;
+      color: var(--success-text);
+    }
+
+    #sucesso-login.show { display: flex; }
+
+    /* ── BOTÃO ── */
     .btn-entrar {
       width: 100%;
-      padding: .8rem 1rem;
+      padding: 13px;
       background: var(--accent);
       color: #fff;
-      font-size: .9375rem;
+      font-size: 1rem;
       font-weight: 700;
+      letter-spacing: .3px;
       border: none;
-      border-radius: 8px;
+      border-radius: var(--radius-btn);
       cursor: pointer;
-      letter-spacing: .01em;
-      transition: background .2s, transform .1s, box-shadow .2s;
-      box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+      transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: .5rem;
-      margin-top: .5rem;
+      gap: 8px;
+      box-shadow: 0 4px 18px rgba(37,99,235,.4);
+      margin-top: 4px;
     }
 
     .btn-entrar:hover:not(:disabled) {
       background: var(--accent-hover);
-      box-shadow: 0 6px 22px rgba(37,99,235,0.45);
+      box-shadow: 0 6px 24px rgba(37,99,235,.55);
+      transform: translateY(-1px);
     }
 
     .btn-entrar:active:not(:disabled) {
       background: var(--accent-active);
-      transform: scale(.98);
+      transform: translateY(0);
+      box-shadow: 0 2px 10px rgba(37,99,235,.3);
     }
 
     .btn-entrar:disabled {
@@ -286,30 +305,39 @@
     /* spinner */
     .spinner {
       display: none;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,.3);
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,.3);
       border-top-color: #fff;
       border-radius: 50%;
-      animation: spin .65s linear infinite;
+      animation: spin .7s linear infinite;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .btn-entrar.loading .spinner { display: block; }
-    .btn-entrar.loading .btn-text { opacity: .7; }
+    .btn-entrar.loading .spinner       { display: block; }
+    .btn-entrar.loading .btn-text      { display: none; }
+    .btn-entrar.loading .btn-icon      { display: none; }
 
-    /* ── Rodapé ── */
+    /* ── RODAPÉ ── */
     .card-footer {
-      margin-top: 1.75rem;
-      padding-top: 1.25rem;
+      margin-top: 28px;
+      padding-top: 20px;
       border-top: 1px solid var(--border);
       text-align: center;
+    }
+
+    .card-footer p {
       font-size: .75rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .card-footer strong {
       color: var(--text-secondary);
     }
 
-    /* ── Overlay de verificação de sessão ── */
+    /* ── OVERLAY DE SESSÃO ── */
     #session-overlay {
       position: fixed;
       inset: 0;
@@ -318,28 +346,27 @@
       align-items: center;
       justify-content: center;
       z-index: 999;
-      transition: opacity .3s;
+      transition: opacity .3s ease;
     }
 
-    #session-overlay.hidden {
+    #session-overlay.hide {
       opacity: 0;
       pointer-events: none;
     }
 
-    .overlay-spinner {
+    .session-spinner {
       width: 36px;
       height: 36px;
-      border: 3px solid rgba(37,99,235,.2);
+      border: 3px solid rgba(37,99,235,.25);
       border-top-color: var(--accent);
       border-radius: 50%;
-      animation: spin .75s linear infinite;
+      animation: spin .8s linear infinite;
     }
 
-    /* ── Responsive ── */
+    /* ── RESPONSIVO ── */
     @media (max-width: 480px) {
       .card {
-        padding: 2rem 1.25rem;
-        border-radius: 12px;
+        padding: 36px 24px 28px;
       }
     }
   </style>
@@ -348,28 +375,44 @@
 
   <!-- Overlay enquanto verifica sessão -->
   <div id="session-overlay">
-    <div class="overlay-spinner"></div>
+    <div class="session-spinner"></div>
   </div>
 
   <!-- Card de Login -->
   <div class="card" role="main">
 
-    <!-- Logo -->
+    <!-- Logo / Cabeçalho -->
     <div class="logo-wrap">
       <div class="logo-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+        <!-- Ícone de folha / planta -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 0 0 8 20C19 20 22 3 22 3c-1 2-8 2-8 2s0-3-3-3C7 2 2 7 2 7s4 0 6 1c-3 2-4 7-4 7s3-3 6-4c-2 3-2 6-2 6h2c0-4 3-8 7-8z"/>
         </svg>
       </div>
-      <div>
-        <div class="logo-title">Fazenda da Esperança</div>
-        <div class="logo-subtitle">Painel Administrativo</div>
+      <div class="logo-title">
+        <h1>Fazenda da Esperança</h1>
+        <p>Painel Administrativo</p>
       </div>
     </div>
 
     <!-- Formulário -->
-    <form id="form-login" novalidate autocomplete="on">
+    <form id="form-login" novalidate>
+
+      <!-- Alerta de Erro -->
+      <div id="erro-login" role="alert" aria-live="assertive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="erro-msg">Credenciais inválidas. Verifique e tente novamente.</span>
+      </div>
+
+      <!-- Alerta de Sucesso -->
+      <div id="sucesso-login" role="status" aria-live="polite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span>Login realizado! Redirecionando…</span>
+      </div>
 
       <!-- E-mail -->
       <div class="form-group">
@@ -379,14 +422,13 @@
             type="email"
             id="email"
             name="email"
-            placeholder="seu@email.com"
-            autocomplete="username"
+            placeholder="admin@fazenda.org"
+            autocomplete="email"
             required
-            spellcheck="false"
+            aria-required="true"
           />
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <path d="m2 7 10 7 10-7"/>
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
           </svg>
         </div>
       </div>
@@ -402,53 +444,31 @@
             placeholder="••••••••"
             autocomplete="current-password"
             required
+            aria-required="true"
           />
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <button
-            type="button"
-            class="toggle-pw"
-            id="toggle-pw"
-            aria-label="Mostrar/ocultar senha"
-            tabindex="-1"
-          >
-            <svg id="icon-eye" viewBox="0 0 24 24">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+          <button type="button" class="toggle-pass" id="toggle-senha" aria-label="Mostrar senha" title="Mostrar senha">
+            <!-- olho aberto -->
+            <svg id="icon-eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
             </svg>
-            <svg id="icon-eye-off" viewBox="0 0 24 24" style="display:none">
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <!-- olho fechado (oculto por padrão) -->
+            <svg id="icon-eye-closed" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
               <line x1="1" y1="1" x2="23" y2="23"/>
             </svg>
           </button>
         </div>
       </div>
 
-      <!-- Mensagem de erro -->
-      <div class="msg" id="erro-login" role="alert" aria-live="polite">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <span id="erro-texto">Credenciais inválidas. Verifique e tente novamente.</span>
-      </div>
-
-      <!-- Mensagem de sucesso -->
-      <div class="msg" id="sucesso-login" role="status" aria-live="polite">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <span>Login realizado! Redirecionando…</span>
-      </div>
-
       <!-- Botão -->
       <button type="submit" class="btn-entrar" id="btn-entrar">
         <div class="spinner" aria-hidden="true"></div>
+        <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
         <span class="btn-text">Entrar</span>
       </button>
 
@@ -456,98 +476,107 @@
 
     <!-- Rodapé -->
     <div class="card-footer">
-      &copy; <span id="ano"></span> Fazenda da Esperança &mdash; Acesso restrito
+      <p>Acesso restrito a <strong>administradores</strong> autorizados.<br>
+      &copy; <span id="ano"></span> Fazenda da Esperança</p>
     </div>
 
   </div>
 
-  <!-- ══════════════════════════════════════════
-       SUPABASE + LÓGICA DE LOGIN
-  ══════════════════════════════════════════ -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    /* ── Configuração ── */
+    /* ═══════════════════════════════════════════════
+       CONFIGURAÇÃO SUPABASE
+    ═══════════════════════════════════════════════ */
     const SUPABASE_URL = 'COLE_SUA_URL';
     const SUPABASE_KEY = 'COLE_SUA_CHAVE';
 
     const { createClient } = supabase;
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    /* ── Ano no rodapé ── */
+    /* ═══════════════════════════════════════════════
+       UTILITÁRIOS
+    ═══════════════════════════════════════════════ */
+    const overlay    = document.getElementById('session-overlay');
+    const formLogin  = document.getElementById('form-login');
+    const btnEntrar  = document.getElementById('btn-entrar');
+    const erroBox    = document.getElementById('erro-login');
+    const erroMsg    = document.getElementById('erro-msg');
+    const sucessoBox = document.getElementById('sucesso-login');
+    const emailInput = document.getElementById('email');
+    const senhaInput = document.getElementById('senha');
+    const toggleBtn  = document.getElementById('toggle-senha');
+    const eyeOpen    = document.getElementById('icon-eye-open');
+    const eyeClosed  = document.getElementById('icon-eye-closed');
+
+    // Ano no rodapé
     document.getElementById('ano').textContent = new Date().getFullYear();
 
-    /* ── Elementos ── */
-    const overlay      = document.getElementById('session-overlay');
-    const form         = document.getElementById('form-login');
-    const emailInput   = document.getElementById('email');
-    const senhaInput   = document.getElementById('senha');
-    const btnEntrar    = document.getElementById('btn-entrar');
-    const erroBox      = document.getElementById('erro-login');
-    const erroTexto    = document.getElementById('erro-texto');
-    const sucessoBox   = document.getElementById('sucesso-login');
-    const togglePw     = document.getElementById('toggle-pw');
-    const iconEye      = document.getElementById('icon-eye');
-    const iconEyeOff   = document.getElementById('icon-eye-off');
-
-    /* ── Toggle mostrar/ocultar senha ── */
-    togglePw.addEventListener('click', () => {
-      const isPassword = senhaInput.type === 'password';
-      senhaInput.type  = isPassword ? 'text' : 'password';
-      iconEye.style.display    = isPassword ? 'none'  : 'block';
-      iconEyeOff.style.display = isPassword ? 'block' : 'none';
-      togglePw.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
-    });
-
-    /* ── Helpers UI ── */
-    function setLoading(on) {
-      btnEntrar.disabled = on;
-      btnEntrar.classList.toggle('loading', on);
+    function hideOverlay() {
+      overlay.classList.add('hide');
+      setTimeout(() => overlay.style.display = 'none', 300);
     }
 
     function showErro(msg) {
-      erroTexto.textContent = msg;
+      erroMsg.textContent = msg || 'Credenciais inválidas. Verifique e tente novamente.';
       erroBox.classList.add('show');
       sucessoBox.classList.remove('show');
+      // re-trigger animação de shake
+      erroBox.style.animation = 'none';
+      void erroBox.offsetWidth;
+      erroBox.style.animation = '';
     }
 
     function hideErro() {
       erroBox.classList.remove('show');
     }
 
-    function showSucesso() {
-      sucessoBox.classList.add('show');
-      erroBox.classList.remove('show');
+    function setLoading(state) {
+      btnEntrar.disabled = state;
+      btnEntrar.classList.toggle('loading', state);
     }
 
-    /* ── Redirecionar ── */
-    function irParaDashboard() {
+    function redirectDashboard() {
       window.location.href = 'dashboard.html';
     }
 
-    /* ── Verificar sessão ativa ── */
+    /* ═══════════════════════════════════════════════
+       VERIFICAR SESSÃO EXISTENTE
+    ═══════════════════════════════════════════════ */
     (async () => {
       try {
         const { data: { session } } = await sb.auth.getSession();
         if (session) {
-          irParaDashboard();
+          redirectDashboard();
           return;
         }
-      } catch (_) { /* sem sessão */ }
-
-      /* Ocultar overlay e mostrar card */
-      overlay.classList.add('hidden');
-      setTimeout(() => overlay.remove(), 350);
+      } catch (e) {
+        console.warn('Erro ao verificar sessão:', e);
+      }
+      hideOverlay();
     })();
 
-    /* ── Submit do formulário ── */
-    form.addEventListener('submit', async (e) => {
+    /* ═══════════════════════════════════════════════
+       TOGGLE MOSTRAR / OCULTAR SENHA
+    ═══════════════════════════════════════════════ */
+    toggleBtn.addEventListener('click', () => {
+      const isPassword = senhaInput.type === 'password';
+      senhaInput.type = isPassword ? 'text' : 'password';
+      eyeOpen.style.display   = isPassword ? 'none'  : 'block';
+      eyeClosed.style.display = isPassword ? 'block' : 'none';
+      toggleBtn.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+      toggleBtn.setAttribute('title',      isPassword ? 'Ocultar senha' : 'Mostrar senha');
+    });
+
+    /* ═══════════════════════════════════════════════
+       SUBMIT — LOGIN
+    ═══════════════════════════════════════════════ */
+    formLogin.addEventListener('submit', async (e) => {
       e.preventDefault();
       hideErro();
 
       const email = emailInput.value.trim();
       const senha = senhaInput.value;
 
-      /* Validação básica no cliente */
+      // Validação básica client-side
       if (!email || !senha) {
         showErro('Preencha o e-mail e a senha para continuar.');
         return;
@@ -563,57 +592,55 @@
       setLoading(true);
 
       try {
-        const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+        const { data, error } = await sb.auth.signInWithPassword({
+          email,
+          password: senha,
+        });
 
         if (error) {
-          /* Mapear mensagens de erro comuns */
-          const msg = mapearErro(error);
-          showErro(msg);
+          // Mapear mensagens de erro do Supabase para PT-BR
+          const errMap = {
+            'Invalid login credentials':        'E-mail ou senha incorretos.',
+            'Email not confirmed':               'Confirme seu e-mail antes de acessar.',
+            'Too many requests':                 'Muitas tentativas. Aguarde alguns minutos.',
+            'User not found':                    'Nenhuma conta encontrada com este e-mail.',
+            'Invalid email or password':         'E-mail ou senha inválidos.',
+          };
+          const ptMsg = errMap[error.message]
+            || (error.message.includes('network') ? 'Erro de conexão. Verifique sua internet.' : null)
+            || 'Falha ao autenticar. Tente novamente.';
+
+          showErro(ptMsg);
+          setLoading(false);
           senhaInput.value = '';
           senhaInput.focus();
           return;
         }
 
         if (data?.session) {
-          showSucesso();
-          setTimeout(irParaDashboard, 900);
+          // Sucesso
+          sucessoBox.classList.add('show');
+          erroBox.classList.remove('show');
+          setTimeout(redirectDashboard, 900);
+        } else {
+          showErro('Resposta inesperada do servidor. Tente novamente.');
+          setLoading(false);
         }
 
       } catch (err) {
+        console.error('Erro inesperado:', err);
         showErro('Erro inesperado. Verifique sua conexão e tente novamente.');
-        console.error('[Login] Erro:', err);
-      } finally {
         setLoading(false);
       }
     });
 
-    /* ── Mapear erros do Supabase para PT-BR ── */
-    function mapearErro(error) {
-      const msg = (error.message || '').toLowerCase();
-
-      if (msg.includes('invalid login credentials') || msg.includes('invalid email or password')) {
-        return 'E-mail ou senha incorretos. Verifique e tente novamente.';
-      }
-      if (msg.includes('email not confirmed')) {
-        return 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
-      }
-      if (msg.includes('too many requests') || error.status === 429) {
-        return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
-      }
-      if (msg.includes('user not found')) {
-        return 'Nenhuma conta encontrada com este e-mail.';
-      }
-      if (msg.includes('network') || msg.includes('fetch')) {
-        return 'Falha de conexão. Verifique sua internet e tente novamente.';
-      }
-
-      return error.message || 'Ocorreu um erro ao fazer login. Tente novamente.';
-    }
-
-    /* ── Limpar erro ao digitar ── */
-    [emailInput, senhaInput].forEach(el => {
-      el.addEventListener('input', hideErro);
+    /* ═══════════════════════════════════════════════
+       LIMPAR ERRO AO DIGITAR
+    ═══════════════════════════════════════════════ */
+    [emailInput, senhaInput].forEach(input => {
+      input.addEventListener('input', hideErro);
     });
   </script>
+
 </body>
 </html>
