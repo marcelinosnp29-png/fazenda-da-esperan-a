@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login · Fazenda da Esperança Admin</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-page:    #0a0f1e;
+      --bg-card:    #111827;
+      --bg-input:   #1f2937;
+      --border:     #374151;
+      --border-focus: #2563eb;
+      --accent:     #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-active: #1e40af;
+      --text-primary:   #f9fafb;
+      --text-secondary: #9ca3af;
+      --text-label:     #d1d5db;
+      --error-bg:   #1f0a0a;
+      --error-border: #dc2626;
+      --error-text: #fca5a5;
+      --success-bg: #0a1f12;
+      --success-border: #16a34a;
+      --success-text: #86efac;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37,99,235,0.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(37,99,235,0.08) 0%, transparent 55%);
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 20px 60px rgba(0,0,0,0.6),
+        0 0 80px rgba(37,99,235,0.06);
+      animation: fadeUp .45s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Logo / Header ── */
+    .logo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: 2rem;
+    }
+
+    .logo-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--accent), #1d4ed8);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 24px rgba(37,99,235,0.35);
+    }
+
+    .logo-icon svg {
+      width: 30px;
+      height: 30px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .logo-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -.02em;
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .logo-subtitle {
+      font-size: .75rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: .1rem;
+    }
+
+    /* ── Form ── */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+      margin-bottom: 1.1rem;
+    }
+
+    label {
+      font-size: .8125rem;
+      font-weight: 600;
+      color: var(--text-label);
+      letter-spacing: .01em;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .input-wrap .icon {
+      position: absolute;
+      left: .875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      stroke: var(--text-secondary);
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+      transition: stroke .2s;
+    }
+
+    input[type="email"],
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      padding: .7rem .875rem .7rem 2.5rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: .9375rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      -webkit-appearance: none;
+    }
+
+    input::placeholder {
+      color: #4b5563;
+    }
+
+    input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+    }
+
+    input:focus + .icon,
+    .input-wrap:focus-within .icon {
+      stroke: var(--accent);
+    }
+
+    /* toggle senha */
+    .toggle-pw {
+      position: absolute;
+      right: .875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      line-height: 0;
+      color: var(--text-secondary);
+      transition: color .2s;
+    }
+
+    .toggle-pw:hover { color: var(--text-primary); }
+
+    .toggle-pw svg {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ── Mensagem erro / sucesso ── */
+    .msg {
+      display: none;
+      padding: .7rem .9rem;
+      border-radius: 8px;
+      font-size: .8125rem;
+      font-weight: 500;
+      margin-bottom: 1.1rem;
+      line-height: 1.4;
+      align-items: flex-start;
+      gap: .5rem;
+    }
+
+    .msg.show { display: flex; }
+
+    .msg svg {
+      flex-shrink: 0;
+      width: 15px;
+      height: 15px;
+      margin-top: .05rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #erro-login {
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+
+    #sucesso-login {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+
+    /* ── Botão ── */
+    .btn-entrar {
+      width: 100%;
+      padding: .8rem 1rem;
+      background: var(--accent);
+      color: #fff;
+      font-size: .9375rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: .01em;
+      transition: background .2s, transform .1s, box-shadow .2s;
+      box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      margin-top: .5rem;
+    }
+
+    .btn-entrar:hover:not(:disabled) {
+      background: var(--accent-hover);
+      box-shadow: 0 6px 22px rgba(37,99,235,0.45);
+    }
+
+    .btn-entrar:active:not(:disabled) {
+      background: var(--accent-active);
+      transform: scale(.98);
+    }
+
+    .btn-entrar:disabled {
+      opacity: .65;
+      cursor: not-allowed;
+    }
+
+    /* spinner */
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-entrar.loading .spinner { display: block; }
+    .btn-entrar.loading .btn-text { opacity: .7; }
+
+    /* ── Rodapé ── */
+    .card-footer {
+      margin-top: 1.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: .75rem;
+      color: var(--text-secondary);
+    }
+
+    /* ── Overlay de verificação de sessão ── */
+    #session-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-page);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      transition: opacity .3s;
+    }
+
+    #session-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .overlay-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(37,99,235,.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .card {
+        padding: 2rem 1.25rem;
+        border-radius: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay enquanto verifica sessão -->
+  <div id="session-overlay">
+    <div class="overlay-spinner"></div>
+  </div>
+
+  <!-- Card de Login -->
+  <div class="card" role="main">
+
+    <!-- Logo -->
+    <div class="logo-wrap">
+      <div class="logo-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-title">Fazenda da Esperança</div>
+        <div class="logo-subtitle">Painel Administrativo</div>
+      </div>
+    </div>
+
+    <!-- Formulário -->
+    <form id="form-login" novalidate autocomplete="on">
+
+      <!-- E-mail -->
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <div class="input-wrap">
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="seu@email.com"
+            autocomplete="username"
+            required
+            spellcheck="false"
+          />
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <path d="m2 7 10 7 10-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Senha -->
+      <div class="form-group">
+        <label for="senha">Senha</label>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="senha"
+            name="senha"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <button
+            type="button"
+            class="toggle-pw"
+            id="toggle-pw"
+            aria-label="Mostrar/ocultar senha"
+            tabindex="-1"
+          >
+            <svg id="icon-eye" viewBox="0 0 24 24">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg id="icon-eye-off" viewBox="0 0 24 24" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Mensagem de erro -->
+      <div class="msg" id="erro-login" role="alert" aria-live="polite">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="erro-texto">Credenciais inválidas. Verifique e tente novamente.</span>
+      </div>
+
+      <!-- Mensagem de sucesso -->
+      <div class="msg" id="sucesso-login" role="status" aria-live="polite">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span>Login realizado! Redirecionando…</span>
+      </div>
+
+      <!-- Botão -->
+      <button type="submit" class="btn-entrar" id="btn-entrar">
+        <div class="spinner" aria-hidden="true"></div>
+        <span class="btn-text">Entrar</span>
+      </button>
+
+    </form>
+
+    <!-- Rodapé -->
+    <div class="card-footer">
+      &copy; <span id="ano"></span> Fazenda da Esperança &mdash; Acesso restrito
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SUPABASE + LÓGICA DE LOGIN
+  ══════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    /* ── Configuração ── */
+    const SUPABASE_URL = 'COLE_SUA_URL';
+    const SUPABASE_KEY = 'COLE_SUA_CHAVE';
+
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    /* ── Ano no rodapé ── */
+    document.getElementById('ano').textContent = new Date().getFullYear();
+
+    /* ── Elementos ── */
+    const overlay      = document.getElementById('session-overlay');
+    const form         = document.getElementById('form-login');
+    const emailInput   = document.getElementById('email');
+    const senhaInput   = document.getElementById('senha');
+    const btnEntrar    = document.getElementById('btn-entrar');
+    const erroBox      = document.getElementById('erro-login');
+    const erroTexto    = document.getElementById('erro-texto');
+    const sucessoBox   = document.getElementById('sucesso-login');
+    const togglePw     = document.getElementById('toggle-pw');
+    const iconEye      = document.getElementById('icon-eye');
+    const iconEyeOff   = document.getElementById('icon-eye-off');
+
+    /* ── Toggle mostrar/ocultar senha ── */
+    togglePw.addEventListener('click', () => {
+      const isPassword = senhaInput.type === 'password';
+      senhaInput.type  = isPassword ? 'text' : 'password';
+      iconEye.style.display    = isPassword ? 'none'  : 'block';
+      iconEyeOff.style.display = isPassword ? 'block' : 'none';
+      togglePw.setAttribute('aria-label', isPassword ? 'Ocultar senha' : 'Mostrar senha');
+    });
+
+    /* ── Helpers UI ── */
+    function setLoading(on) {
+      btnEntrar.disabled = on;
+      btnEntrar.classList.toggle('loading', on);
+    }
+
+    function showErro(msg) {
+      erroTexto.textContent = msg;
+      erroBox.classList.add('show');
+      sucessoBox.classList.remove('show');
+    }
+
+    function hideErro() {
+      erroBox.classList.remove('show');
+    }
+
+    function showSucesso() {
+      sucessoBox.classList.add('show');
+      erroBox.classList.remove('show');
+    }
+
+    /* ── Redirecionar ── */
+    function irParaDashboard() {
+      window.location.href = 'dashboard.html';
+    }
+
+    /* ── Verificar sessão ativa ── */
+    (async () => {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) {
+          irParaDashboard();
+          return;
+        }
+      } catch (_) { /* sem sessão */ }
+
+      /* Ocultar overlay e mostrar card */
+      overlay.classList.add('hidden');
+      setTimeout(() => overlay.remove(), 350);
+    })();
+
+    /* ── Submit do formulário ── */
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideErro();
+
+      const email = emailInput.value.trim();
+      const senha = senhaInput.value;
+
+      /* Validação básica no cliente */
+      if (!email || !senha) {
+        showErro('Preencha o e-mail e a senha para continuar.');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        showErro('Informe um endereço de e-mail válido.');
+        emailInput.focus();
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+
+        if (error) {
+          /* Mapear mensagens de erro comuns */
+          const msg = mapearErro(error);
+          showErro(msg);
+          senhaInput.value = '';
+          senhaInput.focus();
+          return;
+        }
+
+        if (data?.session) {
+          showSucesso();
+          setTimeout(irParaDashboard, 900);
+        }
+
+      } catch (err) {
+        showErro('Erro inesperado. Verifique sua conexão e tente novamente.');
+        console.error('[Login] Erro:', err);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    /* ── Mapear erros do Supabase para PT-BR ── */
+    function mapearErro(error) {
+      const msg = (error.message || '').toLowerCase();
+
+      if (msg.includes('invalid login credentials') || msg.includes('invalid email or password')) {
+        return 'E-mail ou senha incorretos. Verifique e tente novamente.';
+      }
+      if (msg.includes('email not confirmed')) {
+        return 'Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.';
+      }
+      if (msg.includes('too many requests') || error.status === 429) {
+        return 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.';
+      }
+      if (msg.includes('user not found')) {
+        return 'Nenhuma conta encontrada com este e-mail.';
+      }
+      if (msg.includes('network') || msg.includes('fetch')) {
+        return 'Falha de conexão. Verifique sua internet e tente novamente.';
+      }
+
+      return error.message || 'Ocorreu um erro ao fazer login. Tente novamente.';
+    }
+
+    /* ── Limpar erro ao digitar ── */
+    [emailInput, senhaInput].forEach(el => {
+      el.addEventListener('input', hideErro);
+    });
+  </script>
+</body>
+</html>
